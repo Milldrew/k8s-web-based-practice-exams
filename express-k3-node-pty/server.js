@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const pty = require('node-pty');
-const path = require('path');
 const { isCorrect, getCurrentQuestion, resetQuestions } = require('./is-correct');
 
 const app = express();
@@ -14,9 +13,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Serve static files
-app.use(express.static(path.join(__dirname)));
 
 // Store active PTY sessions
 const sessions = new Map();
@@ -85,20 +81,12 @@ app.post('/reset', (req, res) => {
 
 /**
  * GET /
- * Serve the web client
+ * Health check and API information
  */
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client.html'));
-});
-
-/**
- * GET /api
- * Health check endpoint
- */
-app.get('/api', (req, res) => {
   res.json({
     status: 'running',
-    message: 'K3s Web Terminal Server',
+    message: 'K3s Web Terminal Server - WebSocket API',
     endpoints: {
       websocket: 'ws://localhost:3000',
       question: 'GET /question',
@@ -192,13 +180,12 @@ wss.on('connection', (ws) => {
 // Start server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Web Client: http://localhost:${PORT}`);
   console.log(`WebSocket endpoint: ws://localhost:${PORT}`);
   console.log(`HTTP endpoints:`);
+  console.log(`  - GET  / (health check)`);
   console.log(`  - GET  /question`);
   console.log(`  - POST /is-correct`);
   console.log(`  - POST /reset`);
-  console.log(`  - GET  /api (health check)`);
 });
 
 // Graceful shutdown
