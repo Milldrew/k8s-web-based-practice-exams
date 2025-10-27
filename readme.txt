@@ -17,3 +17,5 @@ express app with three endpoints:
   - one http endpoint called /is-correct that returns true if the question is correct
   - one endpoint called /question which delivers the question prompt from a string in the node.js program and the solution
  The value returned by question and solution should come fromm a json file  that will later be a config map
+ The test that is run should be a node.js function that is stored in a file named is-correct
+ The file will also be added using a config map that provides the function
