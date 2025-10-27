@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  k3s-web-terminal:
+    build: .
+    container_name: k3s-web-terminal
+    ports:
+      - "3000:3000"
+    privileged: true
+    volumes:
+      - k3s-data:/var/lib/rancher/k3s
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    restart: unless-stopped
+    tmpfs:
+      - /run
+      - /var/run
+
+volumes:
+  k3s-data:
+    driver: local
