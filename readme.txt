@@ -6,12 +6,12 @@ k8s.milldrew.com/ckad     # CKAD practice exam list
 
 
 Current todos:
-Create a base container of a ubuntu image that can run k3s
+Create a base container of a ubuntu image that can run kind
 Create shell scripts for rebuilding the base image and then rebuilding the k3 images using Dockerfiles
 
 
 Base image:
-ubuntu running k3s, with a node.js server serving a node-pty connection to the container
+ubuntu running kind, with a node.js server serving a node-pty connection to the container
 express app with three endpoints:
   - one websocket endpoint for interacting with the terminal 
   - one http endpoint called /is-correct that returns true if the question is correct
