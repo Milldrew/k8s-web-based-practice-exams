@@ -16,5 +16,3 @@ express app with three endpoints:
   - one websocket endpoint for interacting with the terminal 
   - one http endpoint called /is-correct that returns true if the question is correct
   - one endpoint called /question which delivers the question prompt from a string in the node.js program and the solution
-
-create a 
