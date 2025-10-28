@@ -86,7 +86,7 @@ app.post('/reset', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     status: 'running',
-    message: 'K3s Web Terminal Server - WebSocket API',
+    message: 'Kind Web Terminal Server - WebSocket API',
     endpoints: {
       websocket: 'ws://localhost:3000',
       question: 'GET /question',

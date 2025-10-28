@@ -1,23 +1,30 @@
 version: '3.8'
 
 services:
-  k3s-web-terminal:
+  kind-web-terminal:
     build: .
-    container_name: k3s-web-terminal
+    container_name: kind-web-terminal
     ports:
       - "3000:3000"
+    # Need privileged mode for Docker-in-Docker
     privileged: true
     volumes:
-      - k3s-data:/var/lib/rancher/k3s
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      # Persist Kind cluster data and Docker data inside the container
+      - kind-data:/var/lib/docker
+      - kube-data:/root/.kube
     environment:
       - PORT=3000
       - NODE_ENV=production
+      - DOCKER_TLS_CERTDIR=/certs
     restart: unless-stopped
+    # Storage driver for DinD
+    security_opt:
+      - seccomp=unconfined
     tmpfs:
-      - /run
-      - /var/run
+      - /tmp
 
 volumes:
-  k3s-data:
+  kind-data:
+    driver: local
+  kube-data:
     driver: local

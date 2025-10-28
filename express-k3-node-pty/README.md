@@ -1,13 +1,14 @@
-# K3s Web Terminal - WebSocket API
+# Kind Web Terminal - WebSocket API
 
-An Express webserver that provides a WebSocket-based terminal interface to an Ubuntu container with k3s (lightweight Kubernetes) installed. Perfect for interactive Kubernetes practice and learning.
+An Express webserver that provides a WebSocket-based terminal interface to an Ubuntu container with Kind (Kubernetes in Docker) installed. Perfect for interactive Kubernetes practice and learning with fully functional pods.
 
 ## Features
 
 - WebSocket-based terminal using node-pty
-- Full bash shell access to Ubuntu container with k3s
+- Full bash shell access to Ubuntu container with Kind
+- **Fully functional Kubernetes cluster with working pods**
 - HTTP endpoints for practice questions and answer validation
-- Docker containerized with k3s pre-installed
+- Docker containerized with Kind pre-installed
 - Mock practice questions for Kubernetes learning
 - Standalone WebSocket client for terminal access
 
@@ -35,15 +36,15 @@ docker compose up -d --build
 
 ```bash
 # Build the image
-docker build -t k3s-web-terminal .
+docker build -t kind-web-terminal .
 
 # Run the container
 docker run -d \
-  --name k3s-web-terminal \
-  --privileged \
+  --name kind-web-terminal \
   -p 3000:3000 \
-  -v k3s-data:/var/lib/rancher/k3s \
-  k3s-web-terminal
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v kind-data:/root/.kube \
+  kind-web-terminal
 ```
 
 ### 2. Connect to the Terminal
@@ -128,7 +129,7 @@ Response:
 ```json
 {
   "status": "running",
-  "message": "K3s Web Terminal Server - WebSocket API",
+  "message": "Kind Web Terminal Server - WebSocket API",
   "endpoints": {
     "websocket": "ws://localhost:3000",
     "question": "GET /question",
@@ -192,7 +193,7 @@ Response:
 
 ```
 .
-├── Dockerfile              # Ubuntu container with k3s
+├── Dockerfile              # Ubuntu container with Kind
 ├── docker-compose.yml      # Docker Compose configuration
 ├── package.json           # Node.js dependencies
 ├── server.js              # Express server with WebSocket
@@ -220,7 +221,7 @@ npm start
 node client.js
 ```
 
-Note: k3s will not be available in local development mode. You'll only have access to your host system's bash shell.
+Note: Kind will not be available in local development mode. You'll only have access to your host system's bash shell.
 
 ### Logs
 
@@ -231,7 +232,7 @@ docker compose logs -f
 
 Or with Docker:
 ```bash
-docker logs -f k3s-web-terminal
+docker logs -f kind-web-terminal
 ```
 
 ## Example Usage
@@ -324,11 +325,11 @@ ws.run_forever()
 
 ## Troubleshooting
 
-### k3s fails to start
+### Kind cluster fails to start
 
-Make sure you're running the container in privileged mode:
+Make sure Docker is running on your host machine:
 ```bash
-docker run --privileged ...
+docker info
 ```
 
 ### WebSocket connection fails
@@ -357,9 +358,31 @@ And verify the server is listening:
 curl http://localhost:3000/
 ```
 
+### Permission denied accessing Docker socket
+
+If you see "permission denied" errors when trying to access Docker, make sure the Docker socket has proper permissions:
+```bash
+# On Linux, you may need to add your user to the docker group
+sudo usermod -aG docker $USER
+```
+
+### Pods not starting
+
+Check the Kind cluster status:
+```bash
+docker exec kind-web-terminal kubectl get nodes
+docker exec kind-web-terminal kubectl get pods -A
+```
+
+If the cluster isn't responding, try recreating it:
+```bash
+docker compose down -v
+docker compose up --build
+```
+
 ## Security Notes
 
-This container runs in privileged mode to support k3s. Only use this in development/learning environments, not in production.
+This container requires access to the Docker socket to create Kind clusters. Only use this in development/learning environments, not in production.
 
 ## License
 
