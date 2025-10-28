@@ -93,6 +93,37 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo '  echo "✓ SSH enabled on $node (password: kubernetes)"' >> /start.sh && \
     echo 'done' >> /start.sh && \
     echo '' >> /start.sh && \
+    echo '# Set up SSH keys for passwordless access from parent container' >> /start.sh && \
+    echo 'echo "Setting up SSH keys..."' >> /start.sh && \
+    echo 'mkdir -p /root/.ssh && chmod 700 /root/.ssh' >> /start.sh && \
+    echo 'ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa -q' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Copy public key to both nodes' >> /start.sh && \
+    echo 'for node in $(docker ps --filter "name=k8s-practice" --format "{{.Names}}"); do' >> /start.sh && \
+    echo '  docker exec $node bash -c "mkdir -p /root/.ssh && chmod 700 /root/.ssh"' >> /start.sh && \
+    echo '  cat /root/.ssh/id_rsa.pub | docker exec -i $node bash -c "cat > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys"' >> /start.sh && \
+    echo 'done' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Get node IPs and add to /etc/hosts' >> /start.sh && \
+    echo 'CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
+    echo 'WORKER_IP=$(docker inspect k8s-practice-worker --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
+    echo 'echo "$CONTROL_PLANE_IP k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
+    echo 'echo "$WORKER_IP k8s-practice-worker" >> /etc/hosts' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Create SSH config for easy access' >> /start.sh && \
+    echo 'cat > /root/.ssh/config << "SSHEOF"' >> /start.sh && \
+    echo 'Host k8s-practice-control-plane' >> /start.sh && \
+    echo '    User root' >> /start.sh && \
+    echo '    StrictHostKeyChecking no' >> /start.sh && \
+    echo '    UserKnownHostsFile /dev/null' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'Host k8s-practice-worker' >> /start.sh && \
+    echo '    User root' >> /start.sh && \
+    echo '    StrictHostKeyChecking no' >> /start.sh && \
+    echo '    UserKnownHostsFile /dev/null' >> /start.sh && \
+    echo 'SSHEOF' >> /start.sh && \
+    echo 'chmod 600 /root/.ssh/config' >> /start.sh && \
+    echo '' >> /start.sh && \
     echo '# Set up kubectl config in bashrc' >> /start.sh && \
     echo 'echo "export KUBECONFIG=/root/.kube/config" >> /root/.bashrc' >> /start.sh && \
     echo '' >> /start.sh && \
@@ -106,12 +137,14 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo 'echo "  Worker Node:   ssh -p 2223 root@localhost"' >> /start.sh && \
     echo 'echo "  Password: kubernetes"' >> /start.sh && \
     echo 'echo ""' >> /start.sh && \
-    echo 'echo "From inside kind-web-terminal container:"' >> /start.sh && \
-    echo 'CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
-    echo 'WORKER_IP=$(docker inspect k8s-practice-worker --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
+    echo 'echo "From inside kind-web-terminal container (using hostnames):"' >> /start.sh && \
+    echo 'echo "  Control Plane: ssh k8s-practice-control-plane"' >> /start.sh && \
+    echo 'echo "  Worker Node:   ssh k8s-practice-worker"' >> /start.sh && \
+    echo 'echo ""' >> /start.sh && \
+    echo 'echo "Or using IPs directly:"' >> /start.sh && \
     echo 'echo "  Control Plane: ssh root@$CONTROL_PLANE_IP"' >> /start.sh && \
     echo 'echo "  Worker Node:   ssh root@$WORKER_IP"' >> /start.sh && \
-    echo 'echo "  Password: kubernetes"' >> /start.sh && \
+    echo 'echo "  (SSH keys configured - no password needed)"' >> /start.sh && \
     echo 'echo "========================================="' >> /start.sh && \
     echo 'echo ""' >> /start.sh && \
     echo '' >> /start.sh && \
