@@ -123,8 +123,7 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo '# Get node IPs and add to /etc/hosts' >> /start.sh && \
     echo 'CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
     echo 'WORKER_IP=$(docker inspect k8s-practice-worker --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
-    echo 'echo "172.18.0.2 k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
-    echo 'echo " k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
+    echo 'echo "172.18.0.1 k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
     echo 'echo "172.18.0.2 k8s-practice-worker" >> /etc/hosts' >> /start.sh && \
     echo '' >> /start.sh && \
     echo '# Create SSH config for easy access' >> /start.sh && \
