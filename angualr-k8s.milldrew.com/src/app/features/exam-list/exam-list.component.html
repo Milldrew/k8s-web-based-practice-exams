@@ -1,0 +1,47 @@
+<div class="exam-list-container">
+  <div class="header">
+    <button mat-icon-button (click)="goBack()" class="back-button">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <div class="header-content">
+      <h1>{{ certName }}</h1>
+      <p class="subtitle">Select a practice exam to begin</p>
+    </div>
+  </div>
+
+  <div class="exams-grid">
+    @for (exam of exams; track exam.id) {
+      <mat-card class="exam-card">
+        <mat-card-header>
+          <mat-card-title>{{ exam.name }}</mat-card-title>
+          <mat-card-subtitle>{{ exam.description }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="exam-details">
+            <mat-chip-set>
+              <mat-chip [color]="getDifficultyColor(exam.difficulty)" highlighted>
+                {{ exam.difficulty }}
+              </mat-chip>
+            </mat-chip-set>
+            <div class="info-row">
+              <div class="info-item">
+                <mat-icon>schedule</mat-icon>
+                <span>{{ exam.duration }}</span>
+              </div>
+              <div class="info-item">
+                <mat-icon>quiz</mat-icon>
+                <span>{{ exam.questionsCount }} questions</span>
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-raised-button color="primary" (click)="startExam(exam.id)">
+            Start Exam
+            <mat-icon>play_arrow</mat-icon>
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    }
+  </div>
+</div>

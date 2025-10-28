@@ -1,0 +1,31 @@
+<div class="home-container">
+  <div class="header">
+    <h1>Kubernetes Certification Practice Exams</h1>
+    <p class="subtitle">Choose your certification path and start practicing</p>
+  </div>
+
+  <div class="certifications-grid">
+    @for (cert of certifications; track cert.id) {
+      <mat-card class="exam-card" (click)="navigateToCertification(cert.id)">
+        <mat-card-header>
+          <div class="cert-icon" [style.background-color]="cert.color">
+            <mat-icon>{{ cert.icon }}</mat-icon>
+          </div>
+          <mat-card-title>{{ cert.name }}</mat-card-title>
+          <mat-card-subtitle>{{ cert.fullName }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>{{ cert.description }}</p>
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-raised-button color="primary">
+            Start Practice
+            <mat-icon>arrow_forward</mat-icon>
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    }
+  </div>
+</div>
+
+<router-outlet />
