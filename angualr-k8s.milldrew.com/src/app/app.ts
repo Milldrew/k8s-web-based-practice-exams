@@ -1,56 +1,10 @@
 import { Component } from '@angular/core';
-import { Router, RouterOutlet } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { CommonModule } from '@angular/common';
-
-interface Certification {
-  id: string;
-  name: string;
-  fullName: string;
-  description: string;
-  icon: string;
-  color: string;
-}
+import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, RouterOutlet, MatCardModule, MatButtonModule, MatIconModule],
+  imports: [RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
-export class App {
-  certifications: Certification[] = [
-    {
-      id: 'cka',
-      name: 'CKA',
-      fullName: 'Certified Kubernetes Administrator',
-      description: 'Master Kubernetes administration skills with hands-on practice exams.',
-      icon: 'admin_panel_settings',
-      color: '#326CE5'
-    },
-    {
-      id: 'ckad',
-      name: 'CKAD',
-      fullName: 'Certified Kubernetes Application Developer',
-      description: 'Build and deploy cloud-native applications on Kubernetes.',
-      icon: 'code',
-      color: '#00B4A0'
-    },
-    {
-      id: 'cks',
-      name: 'CKS',
-      fullName: 'Certified Kubernetes Security Specialist',
-      description: 'Secure Kubernetes clusters and cloud-native applications.',
-      icon: 'security',
-      color: '#F57C00'
-    }
-  ];
-
-  constructor(private router: Router) {}
-
-  navigateToCertification(certId: string): void {
-    this.router.navigate([`/${certId}`]);
-  }
-}
+export class App {}
