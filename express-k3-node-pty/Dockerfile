@@ -13,6 +13,8 @@ RUN apk add --no-cache \
     g++ \
     gcc \
     linux-headers \
+    openssh-client \
+    sshpass \
     && rm -rf /var/cache/apk/*
 
 # Install kubectl
@@ -36,6 +38,9 @@ RUN npm install
 
 # Copy app source
 COPY . .
+
+# Copy Kind cluster configuration
+COPY kind-config.yaml /kind-config.yaml
 
 # Create startup script that starts Docker daemon first, then Kind cluster
 RUN echo '#!/bin/bash' > /start.sh && \
@@ -69,14 +74,46 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo '    kind delete cluster --name k8s-practice' >> /start.sh && \
     echo 'fi' >> /start.sh && \
     echo '' >> /start.sh && \
-    echo 'echo "Creating Kind cluster..."' >> /start.sh && \
-    echo 'kind create cluster --name k8s-practice --wait 5m' >> /start.sh && \
+    echo 'echo "Creating Kind cluster with 2 nodes..."' >> /start.sh && \
+    echo 'kind create cluster --name k8s-practice --config /kind-config.yaml --wait 5m' >> /start.sh && \
     echo '' >> /start.sh && \
     echo 'echo "Kind cluster is ready!"' >> /start.sh && \
     echo 'kubectl get nodes' >> /start.sh && \
     echo '' >> /start.sh && \
+    echo '# Install and configure SSH on all nodes' >> /start.sh && \
+    echo 'echo "Installing SSH on cluster nodes..."' >> /start.sh && \
+    echo 'for node in $(docker ps --filter "name=k8s-practice" --format "{{.Names}}"); do' >> /start.sh && \
+    echo '  echo "Setting up SSH on $node..."' >> /start.sh && \
+    echo '  docker exec $node bash -c "apt-get update && apt-get install -y openssh-server" > /dev/null 2>&1' >> /start.sh && \
+    echo '  docker exec $node bash -c "mkdir -p /run/sshd"' >> /start.sh && \
+    echo '  docker exec $node bash -c "echo \"root:kubernetes\" | chpasswd"' >> /start.sh && \
+    echo '  docker exec $node bash -c "sed -i \"s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g\" /etc/ssh/sshd_config"' >> /start.sh && \
+    echo '  docker exec $node bash -c "sed -i \"s/#PasswordAuthentication yes/PasswordAuthentication yes/g\" /etc/ssh/sshd_config"' >> /start.sh && \
+    echo '  docker exec $node bash -c "/usr/sbin/sshd"' >> /start.sh && \
+    echo '  echo "✓ SSH enabled on $node (password: kubernetes)"' >> /start.sh && \
+    echo 'done' >> /start.sh && \
+    echo '' >> /start.sh && \
     echo '# Set up kubectl config in bashrc' >> /start.sh && \
     echo 'echo "export KUBECONFIG=/root/.kube/config" >> /root/.bashrc' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo '# Display SSH access information' >> /start.sh && \
+    echo 'echo ""' >> /start.sh && \
+    echo 'echo "========================================="' >> /start.sh && \
+    echo 'echo "SSH Access Information:"' >> /start.sh && \
+    echo 'echo "========================================="' >> /start.sh && \
+    echo 'echo "From host machine:"' >> /start.sh && \
+    echo 'echo "  Control Plane: ssh -p 2222 root@localhost"' >> /start.sh && \
+    echo 'echo "  Worker Node:   ssh -p 2223 root@localhost"' >> /start.sh && \
+    echo 'echo "  Password: kubernetes"' >> /start.sh && \
+    echo 'echo ""' >> /start.sh && \
+    echo 'echo "From inside kind-web-terminal container:"' >> /start.sh && \
+    echo 'CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
+    echo 'WORKER_IP=$(docker inspect k8s-practice-worker --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
+    echo 'echo "  Control Plane: ssh root@$CONTROL_PLANE_IP"' >> /start.sh && \
+    echo 'echo "  Worker Node:   ssh root@$WORKER_IP"' >> /start.sh && \
+    echo 'echo "  Password: kubernetes"' >> /start.sh && \
+    echo 'echo "========================================="' >> /start.sh && \
+    echo 'echo ""' >> /start.sh && \
     echo '' >> /start.sh && \
     echo '# Start the Node.js application' >> /start.sh && \
     echo 'echo "Starting Express server..."' >> /start.sh && \

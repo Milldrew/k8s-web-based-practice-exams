@@ -5,7 +5,9 @@ services:
     build: .
     container_name: kind-web-terminal
     ports:
-      - "3000:3000"
+      - "3000:3000"      # Express server
+      - "2222:2222"      # SSH to control-plane node
+      - "2223:2223"      # SSH to worker node
     # Need privileged mode for Docker-in-Docker
     privileged: true
     volumes:

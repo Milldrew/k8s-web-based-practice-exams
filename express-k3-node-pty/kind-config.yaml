@@ -1,0 +1,17 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  # Control plane node
+  - role: control-plane
+    extraPortMappings:
+      # Map SSH port for control plane
+      - containerPort: 22
+        hostPort: 2222
+        protocol: TCP
+  # Worker node
+  - role: worker
+    extraPortMappings:
+      # Map SSH port for worker
+      - containerPort: 22
+        hostPort: 2223
+        protocol: TCP
