@@ -27,6 +27,14 @@ RUN curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64 \
     && chmod +x ./kind \
     && mv ./kind /usr/local/bin/kind
 
+# Install Cilium CLI
+RUN CILIUM_CLI_VERSION=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt) \
+    && curl -L --fail --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-amd64.tar.gz \
+    && curl -L --fail --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-amd64.tar.gz.sha256sum \
+    && sha256sum -c cilium-linux-amd64.tar.gz.sha256sum \
+    && tar -xzf cilium-linux-amd64.tar.gz -C /usr/local/bin \
+    && rm cilium-linux-amd64.tar.gz cilium-linux-amd64.tar.gz.sha256sum
+
 # Create app directory
 WORKDIR /app
 
@@ -77,6 +85,14 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo 'echo "Creating Kind cluster with 2 nodes..."' >> /start.sh && \
     echo 'kind create cluster --name k8s-practice --config /kind-config.yaml --wait 5m' >> /start.sh && \
     echo '' >> /start.sh && \
+    echo '# Install Cilium CNI' >> /start.sh && \
+    echo 'echo "Installing Cilium CNI..."' >> /start.sh && \
+    echo 'cilium install --wait' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'echo "Cilium CNI installed successfully!"' >> /start.sh && \
+    echo 'echo "Waiting for Cilium to be ready..."' >> /start.sh && \
+    echo 'cilium status --wait' >> /start.sh && \
+    echo '' >> /start.sh && \
     echo 'echo "Kind cluster is ready!"' >> /start.sh && \
     echo 'kubectl get nodes' >> /start.sh && \
     echo '' >> /start.sh && \
@@ -107,8 +123,9 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo '# Get node IPs and add to /etc/hosts' >> /start.sh && \
     echo 'CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
     echo 'WORKER_IP=$(docker inspect k8s-practice-worker --format "{{.NetworkSettings.IPAddress}}")' >> /start.sh && \
-    echo 'echo "$CONTROL_PLANE_IP k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
-    echo 'echo "$WORKER_IP k8s-practice-worker" >> /etc/hosts' >> /start.sh && \
+    echo 'echo "172.18.0.2 k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
+    echo 'echo " k8s-practice-control-plane" >> /etc/hosts' >> /start.sh && \
+    echo 'echo "172.18.0.2 k8s-practice-worker" >> /etc/hosts' >> /start.sh && \
     echo '' >> /start.sh && \
     echo '# Create SSH config for easy access' >> /start.sh && \
     echo 'cat > /root/.ssh/config << "SSHEOF"' >> /start.sh && \
