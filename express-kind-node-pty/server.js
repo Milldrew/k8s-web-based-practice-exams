@@ -108,12 +108,18 @@ wss.on("connection", (ws) => {
 
   // Create a new PTY session
   const shell = process.platform === "win32" ? "powershell.exe" : "bash";
+
+  // Fix DOCKER_HOST - remove the tcp://docker:2375 inherited from dind image
+  // This allows Docker to use the Unix socket at /var/run/docker.sock
+  const ptyEnv = { ...process.env };
+  delete ptyEnv.DOCKER_HOST;
+
   const ptyProcess = pty.spawn(shell, [], {
     name: "xterm-color",
     cols: 80,
     rows: 30,
     cwd: process.env.HOME || "/root",
-    env: process.env,
+    env: ptyEnv,
   });
 
   const sessionId = Date.now().toString();
