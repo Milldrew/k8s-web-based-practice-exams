@@ -1,8 +1,12 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const pty = require('node-pty');
-const { isCorrect, getCurrentQuestion, resetQuestions } = require('./is-correct');
+const express = require("express");
+const http = require("http");
+const WebSocket = require("ws");
+const pty = require("node-pty");
+const {
+  isCorrect,
+  getCurrentQuestion,
+  resetQuestions,
+} = require("./is-correct");
 
 const app = express();
 const server = http.createServer(app);
@@ -23,16 +27,16 @@ const sessions = new Map();
  * GET /question
  * Returns the current question and solution
  */
-app.get('/question', (req, res) => {
+app.get("/question", (req, res) => {
   try {
     const question = getCurrentQuestion();
     res.json({
       id: question.id,
       question: question.question,
-      solution: question.solution
+      solution: question.solution,
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to retrieve question' });
+    res.status(500).json({ error: "Failed to retrieve question" });
   }
 });
 
@@ -41,14 +45,14 @@ app.get('/question', (req, res) => {
  * Checks if the submitted answer is correct
  * Body: { answer: "user's answer string" }
  */
-app.post('/is-correct', (req, res) => {
+app.post("/is-correct", (req, res) => {
   try {
     const { answer } = req.body;
 
     if (!answer) {
       return res.status(400).json({
-        error: 'Answer is required',
-        correct: false
+        error: "Answer is required",
+        correct: false,
       });
     }
 
@@ -56,12 +60,14 @@ app.post('/is-correct', (req, res) => {
 
     res.json({
       correct,
-      message: correct ? 'Correct! Moving to next question.' : 'Incorrect. Try again.'
+      message: correct
+        ? "Correct! Moving to next question."
+        : "Incorrect. Try again.",
     });
   } catch (error) {
     res.status(500).json({
-      error: 'Failed to check answer',
-      correct: false
+      error: "Failed to check answer",
+      correct: false,
     });
   }
 });
@@ -70,12 +76,12 @@ app.post('/is-correct', (req, res) => {
  * POST /reset
  * Reset questions to the beginning
  */
-app.post('/reset', (req, res) => {
+app.post("/reset", (req, res) => {
   try {
     resetQuestions();
-    res.json({ message: 'Questions reset successfully' });
+    res.json({ message: "Questions reset successfully" });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to reset questions' });
+    res.status(500).json({ error: "Failed to reset questions" });
   }
 });
 
@@ -83,31 +89,31 @@ app.post('/reset', (req, res) => {
  * GET /
  * Health check and API information
  */
-app.get('/', (req, res) => {
+app.get("/", (req, res) => {
   res.json({
-    status: 'running',
-    message: 'Kind Web Terminal Server - WebSocket API',
+    status: "running",
+    message: "Kind Web Terminal Server - WebSocket API",
     endpoints: {
-      websocket: 'ws://localhost:3000',
-      question: 'GET /question',
-      isCorrect: 'POST /is-correct',
-      reset: 'POST /reset'
-    }
+      websocket: "ws://localhost:3000",
+      question: "GET /question",
+      isCorrect: "POST /is-correct",
+      reset: "POST /reset",
+    },
   });
 });
 
 // WebSocket connection for terminal
-wss.on('connection', (ws) => {
-  console.log('New WebSocket connection established');
+wss.on("connection", (ws) => {
+  console.log("New WebSocket connection established");
 
   // Create a new PTY session
-  const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+  const shell = process.platform === "win32" ? "powershell.exe" : "bash";
   const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-color',
+    name: "xterm-color",
     cols: 80,
     rows: 30,
-    cwd: process.env.HOME || '/root',
-    env: process.env
+    cwd: process.env.HOME || "/root",
+    env: process.env,
   });
 
   const sessionId = Date.now().toString();
@@ -118,45 +124,49 @@ wss.on('connection', (ws) => {
   // Send data from PTY to WebSocket client
   ptyProcess.onData((data) => {
     try {
-      ws.send(JSON.stringify({ type: 'output', data }));
+      ws.send(JSON.stringify({ type: "output", data }));
     } catch (error) {
-      console.error('Error sending data to client:', error);
+      console.error("Error sending data to client:", error);
     }
   });
 
   // Handle PTY exit
   ptyProcess.onExit(({ exitCode, signal }) => {
-    console.log(`PTY process exited with code ${exitCode} and signal ${signal}`);
+    console.log(
+      `PTY process exited with code ${exitCode} and signal ${signal}`,
+    );
     sessions.delete(sessionId);
     try {
-      ws.send(JSON.stringify({
-        type: 'exit',
-        exitCode,
-        signal
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "exit",
+          exitCode,
+          signal,
+        }),
+      );
       ws.close();
     } catch (error) {
-      console.error('Error handling PTY exit:', error);
+      console.error("Error handling PTY exit:", error);
     }
   });
 
   // Receive data from WebSocket client and write to PTY
-  ws.on('message', (message) => {
+  ws.on("message", (message) => {
     try {
       const data = JSON.parse(message);
 
-      if (data.type === 'input') {
+      if (data.type === "input") {
         ptyProcess.write(data.data);
-      } else if (data.type === 'resize') {
+      } else if (data.type === "resize") {
         ptyProcess.resize(data.cols || 80, data.rows || 30);
       }
     } catch (error) {
-      console.error('Error processing message:', error);
+      console.error("Error processing message:", error);
     }
   });
 
   // Handle WebSocket close
-  ws.on('close', () => {
+  ws.on("close", () => {
     console.log(`WebSocket connection closed for session ${sessionId}`);
     if (sessions.has(sessionId)) {
       ptyProcess.kill();
@@ -165,16 +175,18 @@ wss.on('connection', (ws) => {
   });
 
   // Handle WebSocket errors
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+  ws.on("error", (error) => {
+    console.error("WebSocket error:", error);
   });
 
   // Send welcome message
-  ws.send(JSON.stringify({
-    type: 'connected',
-    message: 'Connected to terminal',
-    sessionId
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "connected",
+      message: "Connected to terminal",
+      sessionId,
+    }),
+  );
 });
 
 // Start server
@@ -189,13 +201,13 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, closing server...');
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, closing server...");
   sessions.forEach((ptyProcess) => {
     ptyProcess.kill();
   });
   server.close(() => {
-    console.log('Server closed');
+    console.log("Server closed");
     process.exit(0);
   });
 });
