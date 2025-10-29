@@ -60,18 +60,18 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo 'dockerd-entrypoint.sh &' >> /start.sh && \
     echo 'echo "Waiting 20 seconds for Docker to initialize..."' >> /start.sh && \
     echo 'sleep 20' >> /start.sh && \
-    echo 'echo "Checking Docker daemon..."' >> /start.sh && \
-    echo 'timeout=60' >> /start.sh && \
-    echo 'while [ $timeout -gt 0 ]; do' >> /start.sh && \
-    echo '    if docker info >/dev/null 2>&1; then' >> /start.sh && \
-    echo '        echo "Docker daemon is ready!"' >> /start.sh && \
-    echo '        break' >> /start.sh && \
-    echo '    fi' >> /start.sh && \
-    echo '    echo "Waiting for Docker... ($timeout seconds remaining)"' >> /start.sh && \
-    echo '    sleep 5' >> /start.sh && \
-    echo '    timeout=$((timeout-5))' >> /start.sh && \
-    echo 'done' >> /start.sh && \
-    echo '' >> /start.sh && \
+    # echo 'echo "Checking Docker daemon..."' >> /start.sh && \
+    # echo 'timeout=60' >> /start.sh && \
+    # echo 'while [ $timeout -gt 0 ]; do' >> /start.sh && \
+    # echo '    if docker info >/dev/null 2>&1; then' >> /start.sh && \
+    # echo '        echo "Docker daemon is ready!"' >> /start.sh && \
+    # echo '        break' >> /start.sh && \
+    # echo '    fi' >> /start.sh && \
+    # echo '    echo "Waiting for Docker... ($timeout seconds remaining)"' >> /start.sh && \
+    # echo '    sleep 5' >> /start.sh && \
+    # echo '    timeout=$((timeout-5))' >> /start.sh && \
+    # echo 'done' >> /start.sh && \
+    # echo '' >> /start.sh && \
     # echo 'if [ $timeout -le 0 ]; then' >> /start.sh && \
     # echo '    echo "ERROR: Docker daemon failed to start"' >> /start.sh && \
     # echo '    exit 1' >> /start.sh && \
