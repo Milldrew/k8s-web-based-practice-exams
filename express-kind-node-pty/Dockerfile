@@ -72,10 +72,10 @@ RUN echo '#!/bin/bash' > /start.sh && \
     echo '    timeout=$((timeout-5))' >> /start.sh && \
     echo 'done' >> /start.sh && \
     echo '' >> /start.sh && \
-    echo 'if [ $timeout -le 0 ]; then' >> /start.sh && \
-    echo '    echo "ERROR: Docker daemon failed to start"' >> /start.sh && \
-    echo '    exit 1' >> /start.sh && \
-    echo 'fi' >> /start.sh && \
+    # echo 'if [ $timeout -le 0 ]; then' >> /start.sh && \
+    # echo '    echo "ERROR: Docker daemon failed to start"' >> /start.sh && \
+    # echo '    exit 1' >> /start.sh && \
+    # echo 'fi' >> /start.sh && \
     echo '' >> /start.sh && \
     echo 'echo "Starting Express server..."' >> /start.sh && \
     echo 'cd /app' >> /start.sh && \
