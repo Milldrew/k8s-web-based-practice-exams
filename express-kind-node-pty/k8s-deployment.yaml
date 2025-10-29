@@ -39,6 +39,7 @@ spec:
       labels:
         app: kind-web-terminal
     spec:
+      nodeName: thinkpad
       containers:
       - name: kind-web-terminal
         image: harbor.yourdomain.com/k8s-images/express-kind-node-pty-kind-web-terminal
