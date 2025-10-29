@@ -42,6 +42,8 @@ spec:
       containers:
       - name: kind-web-terminal
         image: harbor.yourdomain.com/k8s-images/express-kind-node-pty-kind-web-terminal
+        command: ["/bin/bash"]
+        args: ["/scripts/start.sh"]
         ports:
         - containerPort: 3000
           name: express
@@ -75,13 +77,15 @@ spec:
           readOnly: true
         - name: cgroup
           mountPath: /sys/fs/cgroup
+        - name: start-script
+          mountPath: /scripts
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "2Gi"
+            memory: "6Gi"
             cpu: "2000m"
+          limits:
+            memory: "7Gi"
+            cpu: "3000m"
       volumes:
       - name: kind-data
         persistentVolumeClaim:
@@ -100,6 +104,10 @@ spec:
         hostPath:
           path: /sys/fs/cgroup
           type: Directory
+      - name: start-script
+        configMap:
+          name: start-script
+          defaultMode: 0755
       restartPolicy: Always
 ---
 apiVersion: v1
