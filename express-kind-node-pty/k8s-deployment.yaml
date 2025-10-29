@@ -136,3 +136,133 @@ spec:
     nodePort: 30223
     protocol: TCP
     name: ssh-worker
+---
+apiVersion: v1
+data:
+  start.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "Starting Docker daemon..."
+    # Start Docker daemon in the background
+    dockerd-entrypoint.sh &
+    DOCKERD_PID=$!
+
+    echo "Waiting for Docker daemon to be ready..."
+    timeout=120
+    while [ $timeout -gt 0 ]; do
+        sleep 5
+        if docker info >/dev/null 2>&1; then
+            echo "Docker daemon is ready!"
+            break
+        fi
+        echo "Waiting for Docker... ($timeout seconds remaining)"
+        timeout=$((timeout-5))
+    done
+
+    if [ $timeout -le 0 ]; then
+        echo "ERROR: Docker daemon failed to start"
+        exit 1
+    fi
+
+    # Check if cluster already exists
+    if kind get clusters 2>/dev/null | grep -q "k8s-practice"; then
+        echo "Kind cluster already exists, skipping creation..."
+    else
+        echo "Creating Kind cluster with 2 nodes..."
+        kind create cluster --name k8s-practice --config /kind-config.yaml --wait 5m
+
+        # Install Cilium CNI
+        echo "Installing Cilium CNI..."
+        cilium install --wait
+
+        echo "Cilium CNI installed successfully!"
+        echo "Waiting for Cilium to be ready..."
+        cilium status --wait
+
+        echo "Kind cluster is ready!"
+        kubectl get nodes
+
+        # Install and configure SSH on all nodes
+        echo "Installing SSH on cluster nodes..."
+        for node in $(docker ps --filter "name=k8s-practice" --format "{{.Names}}"); do
+          echo "Setting up SSH on $node..."
+          docker exec $node bash -c "apt-get update && apt-get install -y openssh-server" > /dev/null 2>&1
+          docker exec $node bash -c "mkdir -p /run/sshd"
+          docker exec $node bash -c "echo \"root:kubernetes\" | chpasswd"
+          docker exec $node bash -c "sed -i \"s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g\" /etc/ssh/sshd_config"
+          docker exec $node bash -c "sed -i \"s/#PasswordAuthentication yes/PasswordAuthentication yes/g\" /etc/ssh/sshd_config"
+          docker exec $node bash -c "/usr/sbin/sshd"
+          echo "✓ SSH enabled on $node (password: kubernetes)"
+        done
+
+        # Set up SSH keys for passwordless access from parent container
+        echo "Setting up SSH keys..."
+        mkdir -p /root/.ssh && chmod 700 /root/.ssh
+        ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa -q
+
+        # Copy public key to both nodes
+        for node in $(docker ps --filter "name=k8s-practice" --format "{{.Names}}"); do
+          docker exec $node bash -c "mkdir -p /root/.ssh && chmod 700 /root/.ssh"
+          cat /root/.ssh/id_rsa.pub | docker exec -i $node bash -c "cat > /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys"
+        done
+
+        # Get node IPs and add to /etc/hosts
+        CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format "{{.NetworkSettings.IPAddress}}")
+        WORKER_IP=$(docker inspect k8s-practice-worker --format "{{.NetworkSettings.IPAddress}}")
+        echo "172.18.0.1 k8s-practice-control-plane" >> /etc/hosts
+        echo "172.18.0.2 k8s-practice-worker" >> /etc/hosts
+
+        # Create SSH config for easy access
+        cat > /root/.ssh/config << "SSHEOF"
+    Host k8s-practice-control-plane
+        User root
+        StrictHostKeyChecking no
+        UserKnownHostsFile /dev/null
+
+    Host k8s-practice-worker
+        User root
+        StrictHostKeyChecking no
+        UserKnownHostsFile /dev/null
+    SSHEOF
+        chmod 600 /root/.ssh/config
+
+        # Set up kubectl config in bashrc
+        echo "export KUBECONFIG=/root/.kube/config" >> /root/.bashrc
+
+        # Display SSH access information
+        echo ""
+        echo "========================================="
+        echo "SSH Access Information:"
+        echo "========================================="
+        echo "From host machine:"
+        echo "  Control Plane: ssh -p 2222 root@localhost"
+        echo "  Worker Node:   ssh -p 2223 root@localhost"
+        echo "  Password: kubernetes"
+        echo ""
+        echo "From inside kind-web-terminal container (using hostnames):"
+        echo "  Control Plane: ssh k8s-practice-control-plane"
+        echo "  Worker Node:   ssh k8s-practice-worker"
+        echo ""
+        echo "Or using IPs directly:"
+        echo "  Control Plane: ssh root@$CONTROL_PLANE_IP"
+        echo "  Worker Node:   ssh root@$WORKER_IP"
+        echo "  (SSH keys configured - no password needed)"
+        echo "========================================="
+        echo ""
+    fi
+
+    # Start the Node.js application
+    echo "Starting Express server..."
+    cd /app
+    exec node server.js
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"start.sh":"#!/bin/bash\nset -e\n\necho \"Starting Docker daemon...\"\n# Start Docker daemon in the background\ndockerd-entrypoint.sh \u0026\nDOCKERD_PID=$!\n\necho \"Waiting for Docker daemon to be ready...\"\ntimeout=120\nwhile [ $timeout -gt 0 ]; do\n    sleep 5\n    if docker info \u003e/dev/null 2\u003e\u00261; then\n        echo \"Docker daemon is ready!\"\n        break\n    fi\n    echo \"Waiting for Docker... ($timeout seconds remaining)\"\n    timeout=$((timeout-5))\ndone\n\nif [ $timeout -le 0 ]; then\n    echo \"ERROR: Docker daemon failed to start\"\n    exit 1\nfi\n\n# Check if cluster already exists\nif kind get clusters 2\u003e/dev/null | grep -q \"k8s-practice\"; then\n    echo \"Kind cluster already exists, skipping creation...\"\nelse\n    echo \"Creating Kind cluster with 2 nodes...\"\n    kind create cluster --name k8s-practice --config /kind-config.yaml --wait 5m\n\n    # Install Cilium CNI\n    echo \"Installing Cilium CNI...\"\n    cilium install --wait\n\n    echo \"Cilium CNI installed successfully!\"\n    echo \"Waiting for Cilium to be ready...\"\n    cilium status --wait\n\n    echo \"Kind cluster is ready!\"\n    kubectl get nodes\n\n    # Install and configure SSH on all nodes\n    echo \"Installing SSH on cluster nodes...\"\n    for node in $(docker ps --filter \"name=k8s-practice\" --format \"{{.Names}}\"); do\n      echo \"Setting up SSH on $node...\"\n      docker exec $node bash -c \"apt-get update \u0026\u0026 apt-get install -y openssh-server\" \u003e /dev/null 2\u003e\u00261\n      docker exec $node bash -c \"mkdir -p /run/sshd\"\n      docker exec $node bash -c \"echo \\\"root:kubernetes\\\" | chpasswd\"\n      docker exec $node bash -c \"sed -i \\\"s/#PermitRootLogin prohibit-password/PermitRootLogin yes/g\\\" /etc/ssh/sshd_config\"\n      docker exec $node bash -c \"sed -i \\\"s/#PasswordAuthentication yes/PasswordAuthentication yes/g\\\" /etc/ssh/sshd_config\"\n      docker exec $node bash -c \"/usr/sbin/sshd\"\n      echo \"✓ SSH enabled on $node (password: kubernetes)\"\n    done\n\n    # Set up SSH keys for passwordless access from parent container\n    echo \"Setting up SSH keys...\"\n    mkdir -p /root/.ssh \u0026\u0026 chmod 700 /root/.ssh\n    ssh-keygen -t rsa -N \"\" -f /root/.ssh/id_rsa -q\n\n    # Copy public key to both nodes\n    for node in $(docker ps --filter \"name=k8s-practice\" --format \"{{.Names}}\"); do\n      docker exec $node bash -c \"mkdir -p /root/.ssh \u0026\u0026 chmod 700 /root/.ssh\"\n      cat /root/.ssh/id_rsa.pub | docker exec -i $node bash -c \"cat \u003e /root/.ssh/authorized_keys \u0026\u0026 chmod 600 /root/.ssh/authorized_keys\"\n    done\n\n    # Get node IPs and add to /etc/hosts\n    CONTROL_PLANE_IP=$(docker inspect k8s-practice-control-plane --format \"{{.NetworkSettings.IPAddress}}\")\n    WORKER_IP=$(docker inspect k8s-practice-worker --format \"{{.NetworkSettings.IPAddress}}\")\n    echo \"172.18.0.1 k8s-practice-control-plane\" \u003e\u003e /etc/hosts\n    echo \"172.18.0.2 k8s-practice-worker\" \u003e\u003e /etc/hosts\n\n    # Create SSH config for easy access\n    cat \u003e /root/.ssh/config \u003c\u003c \"SSHEOF\"\nHost k8s-practice-control-plane\n    User root\n    StrictHostKeyChecking no\n    UserKnownHostsFile /dev/null\n\nHost k8s-practice-worker\n    User root\n    StrictHostKeyChecking no\n    UserKnownHostsFile /dev/null\nSSHEOF\n    chmod 600 /root/.ssh/config\n\n    # Set up kubectl config in bashrc\n    echo \"export KUBECONFIG=/root/.kube/config\" \u003e\u003e /root/.bashrc\n\n    # Display SSH access information\n    echo \"\"\n    echo \"=========================================\"\n    echo \"SSH Access Information:\"\n    echo \"=========================================\"\n    echo \"From host machine:\"\n    echo \"  Control Plane: ssh -p 2222 root@localhost\"\n    echo \"  Worker Node:   ssh -p 2223 root@localhost\"\n    echo \"  Password: kubernetes\"\n    echo \"\"\n    echo \"From inside kind-web-terminal container (using hostnames):\"\n    echo \"  Control Plane: ssh k8s-practice-control-plane\"\n    echo \"  Worker Node:   ssh k8s-practice-worker\"\n    echo \"\"\n    echo \"Or using IPs directly:\"\n    echo \"  Control Plane: ssh root@$CONTROL_PLANE_IP\"\n    echo \"  Worker Node:   ssh root@$WORKER_IP\"\n    echo \"  (SSH keys configured - no password needed)\"\n    echo \"=========================================\"\n    echo \"\"\nfi\n\n# Start the Node.js application\necho \"Starting Express server...\"\ncd /app\nexec node server.js\n"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"start-script","namespace":"default"}}
+  creationTimestamp: "2025-10-29T01:04:16Z"
+  name: start-script
+  namespace: default
+  resourceVersion: "1892341"
+  uid: dd9524d0-c95f-4081-b8b8-ec02e70a7c9f
