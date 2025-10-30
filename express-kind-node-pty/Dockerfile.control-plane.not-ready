@@ -1,0 +1,21 @@
+# KIND Control Plane Node without SSH (minimal configuration)
+# Based on kindest/node which includes kubeadm, kubelet, kubectl, containerd, etc.
+
+FROM kindest/node:v1.28.0
+
+# Install useful tools but NOT SSH (for scenarios requiring manual setup)
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    vim \
+    curl \
+    jq \
+    iputils-ping \
+    net-tools \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Labels for identification
+LABEL io.k8s.kind.role="control-plane"
+LABEL io.k8s.kind.ssh="not-ready"
+
+# Note: We don't change ENTRYPOINT/CMD - keep the default KIND behavior

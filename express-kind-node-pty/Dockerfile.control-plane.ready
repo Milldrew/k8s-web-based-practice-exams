@@ -1,0 +1,53 @@
+# KIND Control Plane Node with SSH pre-installed and configured
+# Based on kindest/node which includes kubeadm, kubelet, kubectl, containerd, etc.
+
+FROM kindest/node:v1.28.0
+
+# Install SSH server and client
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    openssh-server \
+    openssh-client \
+    vim \
+    curl \
+    jq \
+    iputils-ping \
+    net-tools \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure SSH - No authentication required (lab environment only)
+RUN mkdir -p /run/sshd /root/.ssh && \
+    chmod 700 /root/.ssh && \
+    # Allow root login
+    sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    # Allow empty passwords
+    sed -i 's/#PermitEmptyPasswords.*/PermitEmptyPasswords yes/' /etc/ssh/sshd_config && \
+    sed -i 's/PermitEmptyPasswords.*/PermitEmptyPasswords yes/' /etc/ssh/sshd_config && \
+    # Enable password authentication
+    sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    # Disable strict modes so SSH works with empty password
+    sed -i 's/#StrictModes.*/StrictModes no/' /etc/ssh/sshd_config && \
+    sed -i 's/StrictModes.*/StrictModes no/' /etc/ssh/sshd_config && \
+    # Set empty password for root
+    passwd -d root && \
+    # Enable SSH service in systemd
+    systemctl enable ssh
+
+# Create SSH config for passwordless inter-node access
+RUN cat > /root/.ssh/config <<EOF
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    User root
+EOF
+RUN chmod 600 /root/.ssh/config
+
+# Labels for identification
+LABEL io.k8s.kind.role="control-plane"
+LABEL io.k8s.kind.ssh="ready"
+
+# Note: We don't change ENTRYPOINT/CMD - keep the default KIND behavior
+# SSH will be started via the startup script or init script
