@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssh-bastion
+  namespace: k8s-practice
+  labels:
+    app: ssh-bastion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssh-bastion
+  template:
+    metadata:
+      labels:
+        app: ssh-bastion
+    spec:
+      containers:
+      - name: bastion
+        image: harbor.yourdomain.com/k8s-images/ssh-bastion:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: cluster-config
+              key: CLUSTER_NAME
+        - name: EXAM_TYPE
+          valueFrom:
+            configMapKeyRef:
+              name: cluster-config
+              key: EXAM_TYPE
+        volumeMounts:
+        - name: ssh-keys
+          mountPath: /root/.ssh
+          readOnly: false
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        stdin: true
+        tty: true
+      volumes:
+      - name: ssh-keys
+        secret:
+          secretName: ssh-keys
+          defaultMode: 0600
+      - name: kubeconfig
+        hostPath:
+          path: /etc/kubernetes
+          type: Directory
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet

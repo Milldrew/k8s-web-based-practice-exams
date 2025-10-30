@@ -1,0 +1,234 @@
+version: '3.8'
+
+# Docker Compose - NOT READY
+# Containers start with SSH pre-installed but NO Kubernetes cluster initialized
+# You must manually run: cd k8s/scripts && ./init-compose-cluster.sh <cluster-name>
+
+services:
+  #############################################
+  # CKA-A-1: Multi-node cluster
+  #############################################
+
+  cka-a-1-control-plane:
+    image: kind-control-plane:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.control-plane.ready
+    container_name: cka-a-1-control-plane
+    hostname: cka-a-1-control-plane
+    privileged: true
+    environment:
+      - KUBECONFIG=/etc/kubernetes/admin.conf
+    ports:
+      - "6443:6443"    # Kubernetes API
+      - "30001:30001"  # SSH bastion NodePort
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - cka-a-1-control-plane-etc-kubernetes:/etc/kubernetes
+      - cka-a-1-control-plane-var-lib-kubelet:/var/lib/kubelet
+      - cka-a-1-control-plane-var-lib-etcd:/var/lib/etcd
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      cka-a-1-network:
+        ipv4_address: 10.20.1.2
+    labels:
+      io.x-k8s.kind.cluster: cka-a-1
+      io.x-k8s.kind.role: control-plane
+
+  cka-a-1-worker:
+    image: kind-worker:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.ready
+    container_name: cka-a-1-worker
+    hostname: cka-a-1-worker
+    privileged: true
+    depends_on:
+      - cka-a-1-control-plane
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - cka-a-1-worker-var-lib-kubelet:/var/lib/kubelet
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      cka-a-1-network:
+        ipv4_address: 10.20.1.3
+    labels:
+      io.x-k8s.kind.cluster: cka-a-1
+      io.x-k8s.kind.role: worker
+
+  cka-a-1-worker2:
+    image: kind-worker:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.ready
+    container_name: cka-a-1-worker2
+    hostname: cka-a-1-worker2
+    privileged: true
+    depends_on:
+      - cka-a-1-control-plane
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - cka-a-1-worker2-var-lib-kubelet:/var/lib/kubelet
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      cka-a-1-network:
+        ipv4_address: 10.20.1.4
+    labels:
+      io.x-k8s.kind.cluster: cka-a-1
+      io.x-k8s.kind.role: worker
+
+  #############################################
+  # CKA-A-2: Multi-node cluster
+  #############################################
+
+  cka-a-2-control-plane:
+    image: kind-control-plane:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.control-plane.ready
+    container_name: cka-a-2-control-plane
+    hostname: cka-a-2-control-plane
+    privileged: true
+    environment:
+      - KUBECONFIG=/etc/kubernetes/admin.conf
+    ports:
+      - "6444:6443"    # Kubernetes API
+      - "30002:30002"  # SSH bastion NodePort
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - cka-a-2-control-plane-etc-kubernetes:/etc/kubernetes
+      - cka-a-2-control-plane-var-lib-kubelet:/var/lib/kubelet
+      - cka-a-2-control-plane-var-lib-etcd:/var/lib/etcd
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      cka-a-2-network:
+        ipv4_address: 10.21.1.2
+    labels:
+      io.x-k8s.kind.cluster: cka-a-2
+      io.x-k8s.kind.role: control-plane
+
+  cka-a-2-worker:
+    image: kind-worker:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.ready
+    container_name: cka-a-2-worker
+    hostname: cka-a-2-worker
+    privileged: true
+    depends_on:
+      - cka-a-2-control-plane
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - cka-a-2-worker-var-lib-kubelet:/var/lib/kubelet
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      cka-a-2-network:
+        ipv4_address: 10.21.1.3
+    labels:
+      io.x-k8s.kind.cluster: cka-a-2
+      io.x-k8s.kind.role: worker
+
+  cka-a-2-worker2:
+    image: kind-worker:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.worker.ready
+    container_name: cka-a-2-worker2
+    hostname: cka-a-2-worker2
+    privileged: true
+    depends_on:
+      - cka-a-2-control-plane
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - cka-a-2-worker2-var-lib-kubelet:/var/lib/kubelet
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      cka-a-2-network:
+        ipv4_address: 10.21.1.4
+    labels:
+      io.x-k8s.kind.cluster: cka-a-2
+      io.x-k8s.kind.role: worker
+
+  #############################################
+  # CKAD-A-1: Single-node cluster
+  #############################################
+
+  ckad-a-1-control-plane:
+    image: kind-control-plane:ready
+    build:
+      context: .
+      dockerfile: Dockerfile.control-plane.ready
+    container_name: ckad-a-1-control-plane
+    hostname: ckad-a-1-control-plane
+    privileged: true
+    environment:
+      - KUBECONFIG=/etc/kubernetes/admin.conf
+    ports:
+      - "6445:6443"     # Kubernetes API
+      - "30101:30101"   # SSH bastion NodePort
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - ckad-a-1-control-plane-etc-kubernetes:/etc/kubernetes
+      - ckad-a-1-control-plane-var-lib-kubelet:/var/lib/kubelet
+      - ckad-a-1-control-plane-var-lib-etcd:/var/lib/etcd
+    tmpfs:
+      - /tmp
+      - /run
+    networks:
+      ckad-a-1-network:
+        ipv4_address: 10.22.1.2
+    labels:
+      io.x-k8s.kind.cluster: ckad-a-1
+      io.x-k8s.kind.role: control-plane
+
+networks:
+  cka-a-1-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.1.0/24
+          gateway: 10.20.1.1
+  cka-a-2-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.21.1.0/24
+          gateway: 10.21.1.1
+  ckad-a-1-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.22.1.0/24
+          gateway: 10.22.1.1
+
+volumes:
+  # CKA-A-1 persistent volumes
+  cka-a-1-control-plane-etc-kubernetes:
+  cka-a-1-control-plane-var-lib-kubelet:
+  cka-a-1-control-plane-var-lib-etcd:
+  cka-a-1-worker-var-lib-kubelet:
+  cka-a-1-worker2-var-lib-kubelet:
+
+  # CKA-A-2 persistent volumes
+  cka-a-2-control-plane-etc-kubernetes:
+  cka-a-2-control-plane-var-lib-kubelet:
+  cka-a-2-control-plane-var-lib-etcd:
+  cka-a-2-worker-var-lib-kubelet:
+  cka-a-2-worker2-var-lib-kubelet:
+
+  # CKAD-A-1 persistent volumes
+  ckad-a-1-control-plane-etc-kubernetes:
+  ckad-a-1-control-plane-var-lib-kubelet:
+  ckad-a-1-control-plane-var-lib-etcd:

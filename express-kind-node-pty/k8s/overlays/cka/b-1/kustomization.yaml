@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cka-b-1
+
+bases:
+  - ../../../base/ssh-bastion
+
+namePrefix: cka-b-1-
+
+commonLabels:
+  exam-type: cka
+  exam-set: b
+  question-number: "1"
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cka-b-1
+    target:
+      kind: Namespace
+  - patch: |-
+      - op: replace
+        path: /spec/ports/0/nodePort
+        value: 30003
+    target:
+      kind: Service
+      name: ssh-bastion
+  - patch: |-
+      - op: replace
+        path: /data/CLUSTER_NAME
+        value: kind-cka-b-1
+      - op: replace
+        path: /data/EXAM_TYPE
+        value: cka
+      - op: replace
+        path: /data/CLUSTER_TYPE
+        value: ha-cluster
+    target:
+      kind: ConfigMap
+      name: cluster-config

@@ -1,0 +1,52 @@
+# SSH Bastion container for accessing KIND cluster nodes
+FROM alpine:3.18
+
+# Install SSH client, kubectl, and useful tools
+RUN apk add --no-cache \
+    openssh-client \
+    bash \
+    curl \
+    vim \
+    git \
+    jq \
+    tmux \
+    htop \
+    iputils \
+    bind-tools \
+    && rm -rf /var/cache/apk/*
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/
+
+# Install helm
+RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Create workspace
+WORKDIR /workspace
+
+# Setup SSH directory
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
+
+# Create a simple entrypoint script
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'set -e' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo 'echo "SSH Bastion Pod"' >> /entrypoint.sh && \
+    echo 'echo "=============="' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo 'echo "Available nodes:"' >> /entrypoint.sh && \
+    echo 'kubectl get nodes -o wide 2>/dev/null || echo "  (kubectl not configured)"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo 'echo "To access nodes via SSH, use:"' >> /entrypoint.sh && \
+    echo 'echo "  ssh <node-name>"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo 'echo "SSH config is in /root/.ssh/config"' >> /entrypoint.sh && \
+    echo 'echo ""' >> /entrypoint.sh && \
+    echo '' >> /entrypoint.sh && \
+    echo '# Keep container running' >> /entrypoint.sh && \
+    echo 'exec tail -f /dev/null' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
