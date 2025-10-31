@@ -1,4 +1,13 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, PLATFORM_ID, Inject } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
+  ElementRef,
+  ViewChild,
+  PLATFORM_ID,
+  Inject,
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -14,21 +23,15 @@ import { Subscription } from 'rxjs';
 @Component({
   selector: 'app-exam-terminal',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatButtonModule,
-    MatIconModule,
-    MatCardModule,
-    MatProgressSpinnerModule
-  ],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatCardModule, MatProgressSpinnerModule],
   templateUrl: './exam-terminal.component.html',
-  styleUrl: './exam-terminal.component.scss'
+  styleUrl: './exam-terminal.component.scss',
 })
 export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('terminal', { static: false }) terminalDiv!: ElementRef;
 
   certType: string = '';
-  examId: number = 0;
+  examSlug: string = '';
   terminal: any = null;
   fitAddon: any = null;
   exam: Exam | null = null;
@@ -47,21 +50,29 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
     private wsService: WebsocketService,
     private examDataService: ExamDataService,
     private lifecycleService: QuestionLifecycleService,
-    @Inject(PLATFORM_ID) platformId: Object
+    @Inject(PLATFORM_ID) platformId: Object,
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
   }
 
   ngOnInit(): void {
-    // Get exam ID from route
-    this.route.params.subscribe(params => {
-      this.certType = params['certType'];
-      const examIdParam = params['examId'];
-      this.examId = examIdParam ? Number(examIdParam) : 0;
+    let wsConnected = false;
+    let routeParamsReady = false;
 
-      if (this.examId) {
+    const tryLoadExam = () => {
+      if (wsConnected && routeParamsReady && this.examSlug) {
+        console.log('Both WebSocket and route params ready, loading exam...');
         this.loadExam();
       }
+    };
+
+    // Get exam slug from route
+    this.route.params.subscribe((params) => {
+      this.certType = params['certType'];
+      this.examSlug = params['examId'] || ''; // This is actually a slug like 'cka-a'
+      console.log('Route params ready, examSlug:', this.examSlug);
+      routeParamsReady = true;
+      tryLoadExam();
     });
 
     // Connect to websocket
@@ -69,6 +80,8 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
       this.wsService.connect().subscribe((connected) => {
         if (connected) {
           console.log('Connected to WebSocket');
+          wsConnected = true;
+          tryLoadExam();
         }
       });
 
@@ -79,7 +92,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
           if (this.attempt) {
             this.createTerminalSession(this.attempt.sessionId);
           }
-        })
+        }),
       );
 
       // Subscribe to terminal created confirmation
@@ -89,7 +102,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
           if (this.terminal) {
             this.terminal.write('\r\nTerminal session established!\r\n');
           }
-        })
+        }),
       );
 
       // Subscribe to terminal output
@@ -98,7 +111,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
           if (this.terminal) {
             this.terminal.write(data);
           }
-        })
+        }),
       );
 
       // Subscribe to exam attempt changes
@@ -108,7 +121,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
             this.attempt = attempt;
             this.loadCurrentQuestion();
           }
-        })
+        }),
       );
     }
   }
@@ -120,7 +133,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.forEach((sub) => sub.unsubscribe());
     this.wsService.disconnect();
     this.lifecycleService.reset();
     if (this.terminal) {
@@ -129,9 +142,9 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadExam(): void {
-    const foundExam = this.examDataService.getExamById(this.examId);
+    const foundExam = this.examDataService.getExamBySlug(this.examSlug);
     if (!foundExam) {
-      console.error('Exam not found');
+      console.error('Exam not found with slug:', this.examSlug);
       this.router.navigate(['/']);
       return;
     }
@@ -139,10 +152,10 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Check for existing attempt or start new one
     const existingAttempt = this.examDataService.getCurrentAttemptValue();
-    if (existingAttempt && existingAttempt.examId === this.examId) {
+    if (existingAttempt && existingAttempt.examId === foundExam.id) {
       this.attempt = existingAttempt;
     } else {
-      this.attempt = this.examDataService.startExam(this.examId);
+      this.attempt = this.examDataService.startExam(foundExam.id);
     }
 
     if (!this.attempt) {
@@ -214,8 +227,8 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
         brightBlue: '#3b8eea',
         brightMagenta: '#d670d6',
         brightCyan: '#29b8db',
-        brightWhite: '#e5e5e5'
-      }
+        brightWhite: '#e5e5e5',
+      },
     });
 
     this.fitAddon = new FitAddon();
@@ -243,7 +256,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
         if (dims) {
           this.wsService.emit('terminal-resize', {
             cols: dims.cols,
-            rows: dims.rows
+            rows: dims.rows,
           });
         }
       }
@@ -259,7 +272,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
     this.wsService.emit('create-terminal', {
       sessionId,
       cols: dims?.cols || 80,
-      rows: dims?.rows || 24
+      rows: dims?.rows || 24,
     });
   }
 
