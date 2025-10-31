@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Observable, Subject, fromEvent } from 'rxjs';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class WebsocketService {
   private socket: Socket | null = null;
@@ -14,6 +14,7 @@ export class WebsocketService {
   constructor() {}
 
   connect(): Observable<boolean> {
+    console.log('connect');
     if (this.socket?.connected) {
       return this.connected$.asObservable();
     }
@@ -21,7 +22,7 @@ export class WebsocketService {
     // Connect to the Angular SSR server's Socket.IO endpoint
     this.socket = io('http://localhost:4000', {
       path: '/socket.io/',
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
     });
 
     this.socket.on('connect', () => {
@@ -51,14 +52,21 @@ export class WebsocketService {
   }
 
   connectToK3s(sessionId: string): Observable<{ sessionId: string }> {
+    console.log('connecto to k3s');
     this.sessionId = sessionId;
+    console.log(`connectToK3s called with sessionId: ${sessionId}`);
+    console.log(`Socket exists: ${!!this.socket}, Socket connected: ${this.socket?.connected}`);
     if (this.socket) {
+      console.log(`Emitting connect-to-k3s event with sessionId: ${sessionId}`);
       this.socket.emit('connect-to-k3s', { sessionId });
+    } else {
+      console.error('Socket is null, cannot connect to K3s');
     }
     return this.k3sConnected$.asObservable();
   }
 
   emit(eventName: string, data: any): void {
+    console.log('emit ' + eventName);
     if (this.socket) {
       this.socket.emit(eventName, data);
     }
