@@ -1,3 +1,6 @@
+// const { Terminal } = await import('@xterm/xterm');
+// const { FitAddon } = await import('@xterm/addon-fit');
+import { Terminal } from 'xterm';
 import {
   Component,
   OnInit,
@@ -201,8 +204,6 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.isBrowser) return;
 
     // Dynamically import xterm only in the browser
-    const { Terminal } = await import('@xterm/xterm');
-    const { FitAddon } = await import('@xterm/addon-fit');
 
     this.terminal = new Terminal({
       cursorBlink: true,
