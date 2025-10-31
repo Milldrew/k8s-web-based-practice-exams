@@ -205,6 +205,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Dynamically import xterm only in the browser
 
+    console.log(Terminal, FitAddon);
     this.terminal = new Terminal({
       cursorBlink: true,
       fontSize: 14,
