@@ -42,7 +42,8 @@ app.use(cors({
 const k3sConnections: Record<string, { k3sSocket: ClientSocket; sessionId: string }> = {};
 
 // Get K3s WebSocket URL from environment or default
-const K3S_WS_URL = process.env['K3S_WS_URL'] || 'http://172.28.0.10:3000';
+// Use localhost when running on host, or 172.28.0.10 when running in Docker
+const K3S_WS_URL = process.env['K3S_WS_URL'] || 'http://localhost:3000';
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -53,6 +54,11 @@ io.on('connection', (clientSocket) => {
   console.log(`Client connected: ${clientSocket.id}`);
 
   let k3sSocket: ClientSocket | null = null;
+
+  // Debug: Log all events from client
+  clientSocket.onAny((eventName, ...args) => {
+    console.log(`Received event from client ${clientSocket.id}: ${eventName}`, args);
+  });
 
   // Connect to K3s control plane on first terminal request
   clientSocket.on('connect-to-k3s', (data: { sessionId: string }) => {

@@ -13,6 +13,7 @@ export interface Question {
 
 export interface Exam {
   id: number;
+  slug: string;
   examType: 'CKA' | 'CKS' | 'CKAD';
   examName: string;
   description: string;
@@ -48,6 +49,7 @@ export class ExamDataService {
   private exams: Exam[] = [
     {
       id: 1,
+      slug: 'cka-a',
       examType: 'CKA',
       examName: 'CKA Practice Exam 1',
       description: 'Certified Kubernetes Administrator - Practice Exam 1',
@@ -96,6 +98,7 @@ export class ExamDataService {
     },
     {
       id: 2,
+      slug: 'cks-a',
       examType: 'CKS',
       examName: 'CKS Practice Exam 1',
       description: 'Certified Kubernetes Security Specialist - Practice Exam 1',
@@ -112,6 +115,7 @@ export class ExamDataService {
     },
     {
       id: 3,
+      slug: 'ckad-a',
       examType: 'CKAD',
       examName: 'CKAD Practice Exam 1',
       description: 'Certified Kubernetes Application Developer - Practice Exam 1',
@@ -141,6 +145,10 @@ export class ExamDataService {
 
   getExamById(examId: number): Exam | undefined {
     return this.exams.find(e => e.id === examId);
+  }
+
+  getExamBySlug(slug: string): Exam | undefined {
+    return this.exams.find(e => e.slug === slug);
   }
 
   getExamsByType(examType: 'CKA' | 'CKS' | 'CKAD'): Exam[] {

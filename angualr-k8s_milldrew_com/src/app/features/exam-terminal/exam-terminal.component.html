@@ -4,7 +4,7 @@
       <mat-icon>arrow_back</mat-icon>
     </button>
     <div class="header-content">
-      <h2>{{ examId }}</h2>
+      <h2>{{ currentQuestion ? 'Question ' + currentQuestion.questionNumber : 'Loading...' }}</h2>
     </div>
     <div class="header-actions">
       <button mat-button (click)="toggleSolution()">
