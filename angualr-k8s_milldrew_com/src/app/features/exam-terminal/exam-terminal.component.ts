@@ -204,8 +204,11 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Dynamically import xterm only in the browser
     const xterm = await import('@xterm/xterm');
-    const { Terminal } = await import('@xterm/xterm');
-    const { FitAddon } = await import('@xterm/addon-fit');
+    const fitAddonModule = await import('@xterm/addon-fit');
+    const { Terminal } = xterm.default;
+    const { FitAddon } = fitAddonModule;
+    // const { Terminal } = await import('@xterm/xterm');
+    // const { FitAddon } = await import('@xterm/addon-fit');
     if (!Terminal) {
       debugger;
     }
