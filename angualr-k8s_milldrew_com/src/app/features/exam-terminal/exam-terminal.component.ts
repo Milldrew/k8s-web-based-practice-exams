@@ -209,9 +209,7 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
     const { FitAddon } = fitAddonModule;
     // const { Terminal } = await import('@xterm/xterm');
     // const { FitAddon } = await import('@xterm/addon-fit');
-    if (!Terminal) {
-      debugger;
-    }
+    debugger;
 
     console.log(Terminal, FitAddon);
     this.terminal = new Terminal({
