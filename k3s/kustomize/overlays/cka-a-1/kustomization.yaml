@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# CKA Practice Exam A - Question 1
+# Overlay configuration for this specific exam question
+
+namespace: cka-a-1
+
+bases:
+  - ../../base
+
+# Override namespace for this exam
+nameSuffix: -a1
+
+# Labels specific to this exam question
+commonLabels:
+  exam-set: a
+  question: "1"
+
+# Patch to adjust replica count or other specific configurations
+patchesStrategicMerge:
+  - replica-patch.yaml
+  - agent-env-patch.yaml
+
+# ConfigMap for exam-specific configuration
+configMapGenerator:
+  - name: exam-config
+    literals:
+      - exam_id=cka-a-1
+      - question_number=1
+      - exam_set=a

@@ -1,0 +1,131 @@
+# Stage 1: Use Node.js Alpine image (has everything Node needs)
+FROM node:20-alpine3.19 AS builder
+
+# Install additional tools we need + build tools for node-pty
+RUN apk add --no-cache \
+    vim \
+    tmux \
+    bash \
+    curl \
+    openssh-server \
+    openssh-client \
+    ca-certificates \
+    python3 \
+    make \
+    g++
+
+# Copy and build control-plane-server in builder stage
+COPY control-plane-server /opt/control-plane-server
+WORKDIR /opt/control-plane-server
+RUN npm install --production
+
+# Stage 2: K3s base image
+FROM rancher/k3s:latest
+
+# Copy only Node.js required libraries (don't overwrite K3s libs)
+COPY --from=builder /lib/ld-musl-x86_64.so.1 /lib/
+COPY --from=builder /usr/lib/libstdc++.so.6 /usr/lib/
+COPY --from=builder /usr/lib/libgcc_s.so.1 /usr/lib/
+
+# Copy additional libraries for other tools
+COPY --from=builder /lib/libc.musl-x86_64.so.1 /lib/
+COPY --from=builder /usr/lib/libcrypto*.so* /usr/lib/
+COPY --from=builder /usr/lib/libssl*.so* /usr/lib/
+COPY --from=builder /usr/lib/libz.so* /usr/lib/
+COPY --from=builder /lib/libncursesw.so* /lib/
+COPY --from=builder /lib/libtinfo.so* /lib/
+COPY --from=builder /usr/lib/libcurl.so* /usr/lib/
+COPY --from=builder /usr/lib/libnghttp*.so* /usr/lib/
+COPY --from=builder /usr/lib/libbrotli*.so* /usr/lib/
+COPY --from=builder /usr/lib/libevent*.so* /usr/lib/
+COPY --from=builder /usr/lib/libidn*.so* /usr/lib/
+COPY --from=builder /lib/libuuid.so* /lib/
+COPY --from=builder /usr/lib/libssh*.so* /usr/lib/
+COPY --from=builder /usr/lib/libpsl.so* /usr/lib/
+
+# Copy binaries
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=builder /usr/bin/env /usr/bin/env
+COPY --from=builder /usr/bin/vim /usr/bin/vim
+COPY --from=builder /usr/bin/tmux /usr/bin/tmux
+COPY --from=builder /bin/bash /bin/bash
+COPY --from=builder /usr/bin/curl /usr/bin/curl
+COPY --from=builder /usr/sbin/sshd /usr/sbin/sshd
+COPY --from=builder /usr/bin/ssh /usr/bin/ssh
+COPY --from=builder /usr/bin/ssh-keygen /usr/bin/ssh-keygen
+
+# Copy Node.js library (includes npm)
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+
+# Create symlinks for node and npm
+RUN ln -sf /usr/local/bin/node /usr/bin/node && \
+    ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm && \
+    ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx && \
+    chmod +x /usr/local/lib/node_modules/npm/bin/npm-cli.js && \
+    chmod +x /usr/local/lib/node_modules/npm/bin/npx-cli.js
+
+# Verify node and npm work
+RUN node --version && npm --version
+
+# Create SSH directory and generate host keys
+RUN mkdir -p /etc/ssh /var/run/sshd /root/.ssh && \
+    ssh-keygen -A 2>/dev/null || true
+
+# Configure SSH for insecure access (PRACTICE ONLY - NOT FOR PRODUCTION!)
+RUN echo "Port 22" > /etc/ssh/sshd_config && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PermitEmptyPasswords no" >> /etc/ssh/sshd_config && \
+    echo "ChallengeResponseAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "UsePAM no" >> /etc/ssh/sshd_config && \
+    echo "X11Forwarding no" >> /etc/ssh/sshd_config && \
+    echo "PrintMotd no" >> /etc/ssh/sshd_config && \
+    echo "AcceptEnv LANG LC_*" >> /etc/ssh/sshd_config && \
+    echo "Subsystem sftp internal-sftp" >> /etc/ssh/sshd_config
+
+# Create a script to set password at runtime
+RUN mkdir -p /usr/local/bin && \
+    echo '#!/bin/sh' > /usr/local/bin/set-root-password.sh && \
+    echo 'echo "root:cka-practice" | chpasswd 2>/dev/null || true' >> /usr/local/bin/set-root-password.sh && \
+    chmod +x /usr/local/bin/set-root-password.sh
+
+# Copy pre-built Node.js websocket server from builder
+COPY --from=builder /opt/control-plane-server /opt/control-plane-server
+WORKDIR /opt/control-plane-server
+
+# Create startup script that runs k3s, sshd, and node server
+RUN cat > /usr/local/bin/start.sh <<'EOF'
+#!/bin/sh
+set -e
+
+# Set root password
+/usr/local/bin/set-root-password.sh || true
+
+# Generate SSH host keys if they don't exist
+if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+    ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N '' 2>/dev/null || true
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N '' 2>/dev/null || true
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' 2>/dev/null || true
+fi
+
+# Start SSH daemon in background
+/usr/sbin/sshd -e 2>&1 &
+
+# Start Node.js websocket server in background
+cd /opt/control-plane-server && node server.js &
+
+# Start k3s server (this will run in foreground)
+exec /bin/k3s server \
+    --disable=traefik \
+    --disable=servicelb \
+    --write-kubeconfig-mode=644 \
+    --kube-apiserver-arg=anonymous-auth=true
+EOF
+
+RUN chmod +x /usr/local/bin/start.sh
+
+# Expose SSH, k3s API, and WebSocket ports
+EXPOSE 22 6443 3000
+
+ENTRYPOINT ["/usr/local/bin/start.sh"]

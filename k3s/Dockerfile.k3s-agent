@@ -1,0 +1,94 @@
+# Multi-stage build to add SSH to k3s
+FROM alpine:latest AS builder
+
+# Install OpenSSH and other utilities in Alpine
+RUN apk add --no-cache \
+    openssh-server \
+    openssh-client \
+    bash \
+    curl \
+    vim \
+    nano
+
+# Start from k3s base image
+FROM rancher/k3s:latest
+
+# Copy SSH binaries and dependencies from Alpine
+COPY --from=builder /usr/sbin/sshd /usr/sbin/sshd
+COPY --from=builder /usr/bin/ssh* /usr/bin/
+COPY --from=builder /usr/bin/scp /usr/bin/
+COPY --from=builder /bin/bash /bin/bash
+COPY --from=builder /usr/bin/curl /usr/bin/
+COPY --from=builder /usr/bin/vim /usr/bin/
+COPY --from=builder /usr/bin/nano /usr/bin/
+
+# Copy all necessary libraries
+COPY --from=builder /lib/ld-musl-*.so.1 /lib/
+COPY --from=builder /usr/lib/libcrypto*.so* /usr/lib/
+COPY --from=builder /usr/lib/libz.so* /usr/lib/
+COPY --from=builder /lib/libncursesw.so* /lib/
+COPY --from=builder /usr/lib/libcurl.so* /usr/lib/
+COPY --from=builder /usr/lib/libnghttp*.so* /usr/lib/
+COPY --from=builder /usr/lib/libbrotli*.so* /usr/lib/
+COPY --from=builder /usr/lib/libssl*.so* /usr/lib/
+
+# Copy PAM and NSS libraries (needed for password authentication)
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
+COPY --from=builder /etc/shadow /etc/shadow
+
+# Create SSH directory and generate host keys
+RUN mkdir -p /etc/ssh /var/run/sshd /root/.ssh && \
+    /usr/sbin/sshd -t 2>/dev/null || ssh-keygen -A || true
+
+# Configure SSH for insecure access (PRACTICE ONLY - NOT FOR PRODUCTION!)
+RUN echo "Port 22" > /etc/ssh/sshd_config && \
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
+    echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+    echo "PermitEmptyPasswords no" >> /etc/ssh/sshd_config && \
+    echo "ChallengeResponseAuthentication no" >> /etc/ssh/sshd_config && \
+    echo "UsePAM no" >> /etc/ssh/sshd_config && \
+    echo "X11Forwarding no" >> /etc/ssh/sshd_config && \
+    echo "PrintMotd no" >> /etc/ssh/sshd_config && \
+    echo "AcceptEnv LANG LC_*" >> /etc/ssh/sshd_config && \
+    echo "Subsystem sftp internal-sftp" >> /etc/ssh/sshd_config
+
+# Set root password to 'cka-practice' (INSECURE - for practice only!)
+RUN sed -i 's|^root:[^:]*:|root:$6$rounds=4096$saltysalt$JKlZrKPqFa9qFJVVEKqLX5J5J0KJhMYz7LQHKxJ.kJb5oBj8hKpqFa9qFJVVEKqLX5J5J0KJhMYz7LQHKxJ.0:|' /etc/shadow || \
+    echo 'root:$6$saltysalt$YhQCqPmNPqPz2tV2xN0X5J5J0KJhMYz7LQHKxJ:19000:0:99999:7:::' > /etc/shadow
+
+# Simpler approach - create a script to set password at runtime
+RUN mkdir -p /usr/local/bin && \
+    echo '#!/bin/sh' > /usr/local/bin/set-root-password.sh && \
+    echo 'echo "root:cka-practice" | /usr/sbin/chpasswd 2>/dev/null || echo "root:cka-practice" | chpasswd || true' >> /usr/local/bin/set-root-password.sh && \
+    chmod +x /usr/local/bin/set-root-password.sh
+
+# Create startup script that runs both k3s agent and sshd
+RUN cat > /usr/local/bin/start.sh <<'EOF'
+#!/bin/sh
+set -e
+
+# Try to set root password
+/usr/local/bin/set-root-password.sh || true
+
+# Generate SSH host keys if they don't exist
+if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+    ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key -N '' || true
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N '' || true
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N '' || true
+fi
+
+# Start SSH daemon in background
+/usr/sbin/sshd -e 2>&1 &
+
+# Start k3s agent (this will run in foreground)
+exec /bin/k3s agent
+EOF
+
+RUN chmod +x /usr/local/bin/start.sh
+
+# Expose SSH port
+EXPOSE 22
+
+ENTRYPOINT ["/usr/local/bin/start.sh"]

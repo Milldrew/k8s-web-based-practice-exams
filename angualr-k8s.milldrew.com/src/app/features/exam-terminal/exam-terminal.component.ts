@@ -6,11 +6,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { TerminalWebsocketService } from './terminal-websocket.service';
-import { ExamService } from './exam.service';
+import { WebsocketService } from './websocket.service';
+import { ExamDataService, Exam, Question, ExamAttempt } from './exam-data.service';
+import { QuestionLifecycleService, QuestionLifecycleState } from './question-lifecycle.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-exam-terminal',
+  standalone: true,
   imports: [
     CommonModule,
     MatButtonModule,
@@ -25,31 +28,89 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('terminal', { static: false }) terminalDiv!: ElementRef;
 
   certType: string = '';
-  examId: string = '';
+  examId: number = 0;
   terminal: any = null;
   fitAddon: any = null;
-  currentQuestion: any = null;
+  exam: Exam | null = null;
+  attempt: ExamAttempt | null = null;
+  currentQuestion: Question | null = null;
+  lifecycleState: QuestionLifecycleState | null = null;
   isLoading = true;
   showSolution = false;
+  isCheckingAnswer = false;
   isBrowser: boolean;
+  subscriptions: Subscription[] = [];
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private wsService: TerminalWebsocketService,
-    private examService: ExamService,
+    private wsService: WebsocketService,
+    private examDataService: ExamDataService,
+    private lifecycleService: QuestionLifecycleService,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
   }
 
   ngOnInit(): void {
+    // Get exam ID from route
     this.route.params.subscribe(params => {
       this.certType = params['certType'];
-      this.examId = params['examId'];
+      const examIdParam = params['examId'];
+      this.examId = examIdParam ? Number(examIdParam) : 0;
+
+      if (this.examId) {
+        this.loadExam();
+      }
     });
 
-    this.loadQuestion();
+    // Connect to websocket
+    if (this.isBrowser) {
+      this.wsService.connect().subscribe((connected) => {
+        if (connected) {
+          console.log('Connected to WebSocket');
+        }
+      });
+
+      // Subscribe to K3s connection
+      this.subscriptions.push(
+        this.wsService.on('k3s-connected').subscribe(() => {
+          console.log('K3s connected');
+          if (this.attempt) {
+            this.createTerminalSession(this.attempt.sessionId);
+          }
+        })
+      );
+
+      // Subscribe to terminal created confirmation
+      this.subscriptions.push(
+        this.wsService.on('terminal-created').subscribe((data: any) => {
+          console.log('Terminal session created:', data);
+          if (this.terminal) {
+            this.terminal.write('\r\nTerminal session established!\r\n');
+          }
+        })
+      );
+
+      // Subscribe to terminal output
+      this.subscriptions.push(
+        this.wsService.on<string>('terminal-output').subscribe((data) => {
+          if (this.terminal) {
+            this.terminal.write(data);
+          }
+        })
+      );
+
+      // Subscribe to exam attempt changes
+      this.subscriptions.push(
+        this.examDataService.getCurrentAttempt().subscribe((attempt) => {
+          if (attempt) {
+            this.attempt = attempt;
+            this.loadCurrentQuestion();
+          }
+        })
+      );
+    }
   }
 
   ngAfterViewInit(): void {
@@ -59,23 +120,68 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
     this.wsService.disconnect();
+    this.lifecycleService.reset();
     if (this.terminal) {
       this.terminal.dispose();
     }
   }
 
-  loadQuestion(): void {
-    this.examService.getCurrentQuestion().subscribe({
-      next: (question) => {
-        this.currentQuestion = question;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading question:', error);
-        this.isLoading = false;
-      }
-    });
+  loadExam(): void {
+    const foundExam = this.examDataService.getExamById(this.examId);
+    if (!foundExam) {
+      console.error('Exam not found');
+      this.router.navigate(['/']);
+      return;
+    }
+    this.exam = foundExam;
+
+    // Check for existing attempt or start new one
+    const existingAttempt = this.examDataService.getCurrentAttemptValue();
+    if (existingAttempt && existingAttempt.examId === this.examId) {
+      this.attempt = existingAttempt;
+    } else {
+      this.attempt = this.examDataService.startExam(this.examId);
+    }
+
+    if (!this.attempt) {
+      console.error('Failed to start exam');
+      this.router.navigate(['/']);
+      return;
+    }
+
+    // Connect to K3s
+    this.wsService.connectToK3s(this.attempt.sessionId);
+
+    // Load first question
+    this.loadCurrentQuestion();
+  }
+
+  loadCurrentQuestion(): void {
+    if (!this.exam || !this.attempt) return;
+
+    const questionIndex = this.attempt.currentQuestionIndex;
+    this.currentQuestion = this.exam.questions[questionIndex] || null;
+
+    if (this.currentQuestion) {
+      this.showSolution = false;
+      this.isLoading = false;
+      this.prepareQuestion();
+    }
+  }
+
+  async prepareQuestion(): Promise<void> {
+    if (!this.currentQuestion) return;
+
+    try {
+      this.lifecycleState = this.lifecycleService.getState();
+      await this.lifecycleService.prepareQuestion(this.currentQuestion);
+      this.lifecycleState = this.lifecycleService.getState();
+    } catch (error) {
+      console.error('Failed to prepare question:', error);
+      this.lifecycleState = this.lifecycleService.getState();
+    }
   }
 
   async initTerminal(): Promise<void> {
@@ -117,45 +223,92 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.terminalDiv) {
       this.terminal.open(this.terminalDiv.nativeElement);
-      this.fitAddon.fit();
-    }
-
-    // Connect to WebSocket
-    const wsUrl = 'ws://localhost:3000';
-    this.wsService.connect(wsUrl).subscribe({
-      next: (message) => {
-        if (message.type === 'output' && message.data && this.terminal) {
-          this.terminal.write(message.data);
-        } else if (message.type === 'connected') {
-          console.log('Terminal connected:', message.sessionId);
+      setTimeout(() => {
+        if (this.fitAddon) {
+          this.fitAddon.fit();
         }
-      },
-      error: (error) => {
-        console.error('WebSocket error:', error);
-      }
-    });
+      }, 0);
+    }
 
     // Send input to WebSocket
     this.terminal.onData((data: string) => {
-      this.wsService.sendInput(data);
+      this.wsService.emit('terminal-input', data);
     });
 
     // Handle terminal resize
     window.addEventListener('resize', () => {
       if (this.fitAddon && this.terminal) {
         this.fitAddon.fit();
-        this.wsService.resize(this.terminal.cols, this.terminal.rows);
+        const dims = this.fitAddon.proposeDimensions();
+        if (dims) {
+          this.wsService.emit('terminal-resize', {
+            cols: dims.cols,
+            rows: dims.rows
+          });
+        }
       }
     });
+
+    this.terminal.write('Connecting to K8s cluster...\r\n');
+  }
+
+  createTerminalSession(sessionId: string): void {
+    if (!this.terminal || !this.fitAddon) return;
+
+    const dims = this.fitAddon.proposeDimensions();
+    this.wsService.emit('create-terminal', {
+      sessionId,
+      cols: dims?.cols || 80,
+      rows: dims?.rows || 24
+    });
+  }
+
+  async checkMyWork(): Promise<void> {
+    if (!this.lifecycleService.canCheckAnswer()) {
+      return;
+    }
+
+    this.isCheckingAnswer = true;
+
+    try {
+      const isCorrect = await this.lifecycleService.checkAnswer();
+      this.lifecycleState = this.lifecycleService.getState();
+      console.log('Answer checked:', isCorrect ? 'Correct' : 'Incorrect');
+    } catch (error) {
+      console.error('Failed to check answer:', error);
+      this.lifecycleState = this.lifecycleService.getState();
+    } finally {
+      this.isCheckingAnswer = false;
+    }
   }
 
   toggleSolution(): void {
     this.showSolution = !this.showSolution;
   }
 
-  nextQuestion(): void {
-    // This would navigate to next question or finish exam
-    console.log('Next question clicked');
+  async nextQuestion(): Promise<void> {
+    if (!this.exam || !this.attempt) return;
+
+    if (this.attempt.currentQuestionIndex < this.exam.questions.length - 1) {
+      await this.lifecycleService.moveToNextQuestion();
+      this.lifecycleState = this.lifecycleService.getState();
+    } else {
+      // Last question - complete exam
+      this.completeExam();
+    }
+  }
+
+  previousQuestion(): void {
+    if (!this.attempt) return;
+
+    if (this.attempt.currentQuestionIndex > 0) {
+      this.examDataService.moveToPreviousQuestion();
+    }
+  }
+
+  completeExam(): void {
+    this.examDataService.completeExam();
+    this.router.navigate(['/exam-results']);
   }
 
   goBack(): void {
@@ -164,5 +317,18 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
 
   giveUp(): void {
     this.showSolution = true;
+  }
+
+  getProgress(): number {
+    if (!this.exam || !this.attempt) return 0;
+    return ((this.attempt.currentQuestionIndex + 1) / this.exam.questions.length) * 100;
+  }
+
+  canCheckAnswer(): boolean {
+    return this.lifecycleService.canCheckAnswer() && !this.isCheckingAnswer;
+  }
+
+  canProceedToNext(): boolean {
+    return this.lifecycleState?.phase === 'after' || false;
   }
 }

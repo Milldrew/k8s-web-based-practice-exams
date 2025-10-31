@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# CKA Practice Exam A - Question 2
+# This question might require 3 worker nodes
+
+namespace: cka-a-2
+
+bases:
+  - ../../base
+
+nameSuffix: -a2
+
+commonLabels:
+  exam-set: a
+  question: "2"
+
+patchesStrategicMerge:
+  - replica-patch.yaml
+
+configMapGenerator:
+  - name: exam-config
+    literals:
+      - exam_id=cka-a-2
+      - question_number=2
+      - exam_set=a

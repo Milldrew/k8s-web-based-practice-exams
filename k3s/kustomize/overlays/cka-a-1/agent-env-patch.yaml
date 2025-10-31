@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k3s-agent
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: wait-for-server
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for k3s-server-a1 to be ready..."
+          until nc -z k3s-server-a1.cka-a-1.svc.cluster.local 6443 2>/dev/null; do
+            echo "Waiting for k3s-server-a1:6443..."
+            sleep 2
+          done
+          echo "k3s-server-a1 is ready!"
+      containers:
+      - name: k3s
+        env:
+        - name: K3S_URL
+          value: "https://k3s-server-a1.cka-a-1.svc.cluster.local:6443"

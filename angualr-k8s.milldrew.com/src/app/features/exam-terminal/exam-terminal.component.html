@@ -28,11 +28,11 @@
       } @else if (currentQuestion) {
         <mat-card>
           <mat-card-header>
-            <mat-card-title>Question {{ currentQuestion.id }}</mat-card-title>
+            <mat-card-title>Question {{ currentQuestion.questionNumber }}</mat-card-title>
           </mat-card-header>
           <mat-card-content>
             <div class="question-text">
-              <p>{{ currentQuestion.question }}</p>
+              <p>{{ currentQuestion.questionText }}</p>
             </div>
             @if (showSolution) {
               <div class="solution">

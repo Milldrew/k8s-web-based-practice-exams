@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# CKA Practice Exam B - Question 1
+
+namespace: cka-b-1
+
+bases:
+  - ../../base
+
+nameSuffix: -b1
+
+commonLabels:
+  exam-set: b
+  question: "1"
+
+patchesStrategicMerge:
+  - replica-patch.yaml
+
+configMapGenerator:
+  - name: exam-config
+    literals:
+      - exam_id=cka-b-1
+      - question_number=1
+      - exam_set=b

@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base resources for CKA practice exam clusters
+resources:
+  - namespace.yaml
+  - k3s-server-deployment.yaml
+  - k3s-agent-deployment.yaml
+  - k3s-server-service.yaml
+  - k3s-agent-service.yaml
+
+# Common labels applied to all resources
+labels:
+  - pairs:
+      app.kubernetes.io/managed-by: kustomize
+      practice-exam: cka
+
+namespace: default

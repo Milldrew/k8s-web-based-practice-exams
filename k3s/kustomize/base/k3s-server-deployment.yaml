@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k3s-server
+  labels:
+    app: k3s-server
+    role: control-plane
+spec:
+  serviceName: k3s-server
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k3s-server
+      role: control-plane
+  template:
+    metadata:
+      labels:
+        app: k3s-server
+        role: control-plane
+    spec:
+      hostname: k3s-server
+      subdomain: k3s-server
+      containers:
+      - name: k3s
+        image: harbor.yourdomain.com/k8s-images/k3s-server-ssh:latest
+        securityContext:
+          privileged: true
+        ports:
+        - containerPort: 6443
+          name: api-server
+          protocol: TCP
+        - containerPort: 22
+          name: ssh
+          protocol: TCP
+        - containerPort: 10250
+          name: kubelet
+          protocol: TCP
+        volumeMounts:
+        - name: k3s-data
+          mountPath: /var/lib/rancher/k3s
+        - name: run
+          mountPath: /run
+        - name: varrun
+          mountPath: /var/run
+        env:
+        - name: K3S_TOKEN
+          value: "mysecrettoken"
+        - name: K3S_KUBECONFIG_OUTPUT
+          value: "/output/kubeconfig.yaml"
+        - name: K3S_KUBECONFIG_MODE
+          value: "666"
+        - name: K3S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+
+      volumes:
+      - name: k3s-data
+        emptyDir: {}
+      - name: run
+        emptyDir:
+          medium: Memory
+      - name: varrun
+        emptyDir:
+          medium: Memory
