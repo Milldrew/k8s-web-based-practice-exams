@@ -1,6 +1,7 @@
 // const { Terminal } = await import('@xterm/xterm');
 // const { FitAddon } = await import('@xterm/addon-fit');
-import { Terminal, FitAddon } from '@xterm/xterm';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
 import {
   Component,
   OnInit,
