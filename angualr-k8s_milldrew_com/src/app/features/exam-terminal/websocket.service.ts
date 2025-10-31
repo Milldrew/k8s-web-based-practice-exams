@@ -20,7 +20,7 @@ export class WebsocketService {
     }
 
     // Connect to the Angular SSR server's Socket.IO endpoint
-    this.socket = io('http://localhost:4000', {
+    this.socket = io('http://localhost:4200', {
       path: '/socket.io/',
       transports: ['websocket', 'polling'],
     });
