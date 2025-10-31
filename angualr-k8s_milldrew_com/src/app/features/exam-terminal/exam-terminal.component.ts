@@ -98,8 +98,6 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
       );
 
       // Subscribe to terminal created confirmation
-      const { Terminal } = await import('@xterm/xterm');
-      const { FitAddon } = await import('@xterm/addon-fit');
       this.subscriptions.push(
         this.wsService.on('terminal-created').subscribe((data: any) => {
           console.log('Terminal session created:', data);
@@ -205,6 +203,8 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.isBrowser) return;
 
     // Dynamically import xterm only in the browser
+    const { Terminal } = await import('@xterm/xterm');
+    const { FitAddon } = await import('@xterm/addon-fit');
 
     console.log(Terminal, FitAddon);
     this.terminal = new Terminal({
