@@ -45,8 +45,8 @@ io.on('connection', (socket) => {
     const { sessionId } = data;
     console.log(`Creating terminal for session: ${sessionId}`);
 
-    // Create a new PTY with tmux
-    const ptyProcess = spawn('tmux', ['new-session', '-A', '-s', sessionId], {
+    // Create a new PTY with sh (busybox, already in K3s base image)
+    const ptyProcess = spawn('/bin/sh', [], {
       name: 'xterm-256color',
       cols: data.cols || 80,
       rows: data.rows || 24,
