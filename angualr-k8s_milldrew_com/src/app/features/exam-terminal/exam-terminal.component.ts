@@ -1,7 +1,5 @@
-// const { Terminal } = await import('@xterm/xterm');
-// const { FitAddon } = await import('@xterm/addon-fit');
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+// import { Terminal } from '@xterm/xterm';
+// import { FitAddon } from '@xterm/addon-fit';
 import {
   Component,
   OnInit,
@@ -100,6 +98,8 @@ export class ExamTerminalComponent implements OnInit, AfterViewInit, OnDestroy {
       );
 
       // Subscribe to terminal created confirmation
+      const { Terminal } = await import('@xterm/xterm');
+      const { FitAddon } = await import('@xterm/addon-fit');
       this.subscriptions.push(
         this.wsService.on('terminal-created').subscribe((data: any) => {
           console.log('Terminal session created:', data);
